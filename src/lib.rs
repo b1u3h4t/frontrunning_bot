@@ -41,7 +41,12 @@ pub async fn watch_mempool(config: config::Config) -> Result<()> {
 
 pub async fn execute_trade(config: &config::Config, to: &H160, input: &Bytes, gas: &U256) {
     let bot = Bot::new(config.bot_address, config.http.clone());
-    match bot.frontrun_bytes(*to, input.clone(), *gas).send().await {
+    match bot
+        .frontrun_bytes(*to, input.clone(), *gas)
+        .legacy()
+        .send()
+        .await
+    {
         Ok(receipt) => match receipt.await {
             Ok(_) => println!("Trade on mainnet successful!!!"),
             Err(e) => eprintln!("Failed mainnnet trande with this error: {}", e),
@@ -53,6 +58,8 @@ pub async fn execute_trade(config: &config::Config, to: &H160, input: &Bytes, ga
 pub async fn try_tx(config: &config::Config, to: &H160, input: &Bytes, gas: &U256) -> Result<bool> {
     let block_num = config.http.get_block_number().await?;
     let anvil = Anvil::new()
+        .port(config.fork_port)
+        .chain_id(config.fork_chain_id)
         .fork(config.http_domain.clone())
         .fork_block_number(block_num.as_u64())
         .spawn();
@@ -62,24 +69,28 @@ pub async fn try_tx(config: &config::Config, to: &H160, input: &Bytes, gas: &U25
 
     match bot
         .frontrun_bytes(*to, input.clone(), *gas)
+        .legacy()
         .send()
         .await
     {
         Ok(_) => {
             println!("Transaction successful on mainnet-fork, moving onto real chain");
-            return Ok(true);
+            Ok(true)
         }
         Err(e) => {
             eprintln!("Failed with: {}", e);
-            return Ok(false);
+            Ok(false)
         }
-    };
+    }
 }
 
 pub async fn deploy_contract_fork(
     provider: &SignerMiddleware<Provider<Http>, Wallet<SigningKey>>,
 ) -> Result<bot::Bot<SignerMiddleware<Provider<Http>, Wallet<SigningKey>>>> {
-    let bot_contract = Bot::deploy(Arc::new(provider.clone()), ())?.send().await?;
+    let bot_contract = Bot::deploy(Arc::new(provider.clone()), ())?
+        .legacy()
+        .send()
+        .await?;
     Ok(bot_contract)
 }
 

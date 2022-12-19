@@ -14,6 +14,8 @@ pub struct Config {
     pub http_domain: String,
     pub http: Arc<SignerMiddleware<Provider<Http>, Wallet<SigningKey>>>,
     pub bot_address: H160,
+    pub fork_port: u16,
+    pub fork_chain_id: u64,
 }
 
 impl Config {
@@ -25,6 +27,15 @@ impl Config {
 
         let http_domain = std::env::var("HTTP").expect("Failed to get HTTP");
         let http_provider = Provider::<Http>::try_from(&http_domain)?;
+
+        let fork_port = std::env::var("FORK_PORT")
+            .ok()
+            .map(|port| port.parse::<u16>().unwrap())
+            .unwrap_or_else(|| 8545);
+        let fork_chain_id = std::env::var("FORK_CHAIN_ID")
+            .ok()
+            .map(|chain_id| chain_id.parse::<u64>().unwrap())
+            .unwrap_or_else(|| 31337);
 
         let chain_id = ws_provider.get_chainid().await?;
 
@@ -44,6 +55,8 @@ impl Config {
             http_domain,
             http: Arc::new(middleware),
             bot_address,
+            fork_port,
+            fork_chain_id,
         })
     }
 }
